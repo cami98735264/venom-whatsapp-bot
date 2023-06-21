@@ -1,38 +1,39 @@
-// Supports ES6
-// import { create, Whatsapp } from 'venom-bot';
-const venom = require('venom-bot');
-const prefix = "!";
-venom
-  .create({
-    session: 'zeus' //name of session
-  })
-  .then((client) => start(client))
-  .catch((erro) => {
-    console.log(erro);
+import { create, Whatsapp } from 'venom-bot';
+import fs from 'fs';
+const instance = await create({
+    session: 'zeus-bot' //name of session
+  }).catch((erro) => {
+    return console.log(erro);
   });
+const client = instance;
+start(client);
 
-function start(client) {
-  client.onMessage(async (message) => {
-    if (message.body === 'Hi' && message.isGroupMsg === false) {
-      client
-        .sendText(message.from, 'Welcome Venom 🕷')
-        .then((result) => {
-          console.log('Result: ', result); //return object success
-        })
-        .catch((erro) => {
-          console.error('Error when sending: ', erro); //return object error
-        });
+// Shortcut functions
+const checkOwner = (message) => {
+  const database = JSON.parse(fs.readFileSync("./allowed.json"));
+  if(message.sender.id === database[0].owner) return true;
+  else {
+    client.reply(message.from, "⚠ - No estás autorizado para utilizar este comando", message.id);
+    return false;
+  }
+}
+
+async function start(client) {
+  await client.onMessage(async (message) => {
+    const bodyContent = message.caption || message.body;
+    console.log(message);
+    if(bodyContent.toLowerCase().startsWith("!sticker")) {
+      await client.reply(message.from, "⚠ - Este comando está en mantenimiento", message.id);
     }
-    else if (message.body === prefix + 'sticker') {
-        if (message.isMedia === true || message.isMMS === true) {
-            const buffer = await client.decryptFile(message);
-            // At this point you can do whatever you want with the buffer
-            // Most likely you want to write it into a file
-            const fileName = `some-file-name.${mime.extension(message.mimetype)}`;
-            await fs.writeFile(fileName, buffer, (err) => {
-              console.log(err)
-            });
-        }
+    else if(bodyContent.toLowerCase().startsWith("!eval") && checkOwner(message)) {
+      const args = bodyContent.split(" ").slice(1);
+      if(args.length < 1) return client.reply(message.from, "⚠ - Debes ingresar un código para evaluar", message.id);
+      try {
+        const evaled = await eval(args.join(" "));
+        await client.reply(message.from, `📥 - Código evaluado:\n\`\`\`\n${args.join(" ")}\n\`\`\`\n\n📤 - Resultado:\n\`\`\`\n${evaled}\n\`\`\``, message.id)
+      } catch (err) {
+        await client.reply(message.from, "⚠ - Ocurrió un error al evaluar el código: \n\`\`\`" + err + "\n\`\`\`", message.id);
+      }
     }
-  });
+})
 }
